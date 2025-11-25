@@ -78,8 +78,16 @@ const shipmentSchema = new mongoose.Schema({
   }],
   status: {
     type: String,
-    default: 'Draft',
-    enum: ['Draft', 'Packed', 'Shipped']
+    default: 'Unpacked',
+    enum: ['Unpacked', 'Packed', 'Shipped']
+  },
+  isPriority: {
+    type: Boolean,
+    default: false
+  },
+  priorityIndex: {
+    type: Number,
+    required: false
   }
 }, {
   timestamps: true // This adds createdAt and updatedAt fields automatically
