@@ -1,6 +1,13 @@
 const mongoose = require('mongoose');
 
 const shipmentSchema = new mongoose.Schema({
+  shipmentId: {
+    type: String,
+    required: [true, 'Shipment ID is required'],
+    unique: true,
+    trim: true,
+    index: true
+  },
   shipmentName: {
     type: String,
     required: [true, 'Shipment name is required'],

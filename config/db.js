@@ -3,15 +3,24 @@ require('dotenv').config();
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://rrr:Devel166x6@cluster0.keh3e.gcp.mongodb.net/KV-FBA?appName=Cluster0';
 
-const connectDB = async () => {
-  try {
-    await mongoose.connect(MONGODB_URI);
-    console.log('MongoDB connected successfully');
-  } catch (error) {
-    console.error('MongoDB connection error:', error);
-    throw error;
+let isConnected = false;
+
+async function connectDB() {
+  if (isConnected) {
+    console.log("Mongo already connected");
+    return;
   }
-};
+  try {
+    const conn = await mongoose.connect(MONGODB_URI);
+    isConnected = true;
+    // drop shipments collection
+
+    console.log("MongoDB connected:", conn.connection.host);
+  } catch (err) {
+    console.error("MongoDB connection failed:", err);
+    process.exit(1);
+  }
+}
 
 module.exports = { connectDB };
 

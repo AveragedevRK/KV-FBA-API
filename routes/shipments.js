@@ -5,9 +5,27 @@ const Shipment = require('../models/Shipment');
 // POST /api/shipments - Create a new shipment
 router.post('/', async (req, res) => {
   try {
-    const { shipmentName, meta, shipmentContents, packingLines } = req.body;
+    console.log("REQ BODY:", req.body);
+
+    const { shipmentId, shipmentName, meta, shipmentContents, packingLines } = req.body;
 
     // Validate required fields
+    if (!shipmentId || !shipmentId.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Shipment ID is required'
+      });
+    }
+
+    // Check if shipment with this ID already exists
+    const existingShipment = await Shipment.findOne({ shipmentId: shipmentId.trim() });
+    if (existingShipment) {
+      return res.status(409).json({
+        success: false,
+        message: 'Shipment with this ID already exists'
+      });
+    }
+
     if (!shipmentName || !shipmentName.trim()) {
       return res.status(400).json({
         success: false,
@@ -40,6 +58,7 @@ router.post('/', async (req, res) => {
 
     // Create new shipment
     const shipment = new Shipment({
+      shipmentId: shipmentId.trim(),
       shipmentName: shipmentName.trim(),
       meta: meta || {},
       shipmentContents,
