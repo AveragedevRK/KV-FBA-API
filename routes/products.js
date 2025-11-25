@@ -24,13 +24,13 @@ router.get('/', async (req, res) => {
     // Search query
     const searchQuery = req.query.search
       ? {
-          $or: [
-            { sku: { $regex: req.query.search, $options: 'i' } },
-            { asin: { $regex: req.query.search, $options: 'i' } },
-            { productName: { $regex: req.query.search, $options: 'i' } },
-            { description: { $regex: req.query.search, $options: 'i' } }
-          ]
-        }
+        $or: [
+          { sku: { $regex: req.query.search, $options: 'i' } },
+          { asin: { $regex: req.query.search, $options: 'i' } },
+          { productName: { $regex: req.query.search, $options: 'i' } },
+          { description: { $regex: req.query.search, $options: 'i' } }
+        ]
+      }
       : {};
 
     // Get total count for pagination

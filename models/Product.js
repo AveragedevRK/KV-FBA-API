@@ -19,25 +19,9 @@ const productSchema = new mongoose.Schema({
     trim: true
   },
   description: {
-    short: {
-      type: String,
-      required: true,
-      trim: true,
-      maxlength: 160  // Good for meta descriptions
-    },
-    long: {
-      type: String,
-      trim: true,
-      default: ''
-    },
-    features: [{
-      type: String,
-      trim: true
-    }],
-    specifications: {
-      type: Map,
-      of: String
-    }
+    type: String,
+    required: false,
+    trim: true,
   },
   imageUrl: {
     type: String,
