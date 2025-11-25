@@ -77,4 +77,26 @@ router.post('/', async (req, res) => {
   }
 });
 
+// GET /api/shipments - Get all shipments
+router.get('/', async (req, res) => {
+  try {
+    const shipments = await Shipment.find({})
+      .sort({ createdAt: -1 }) // Sort by newest first
+      .lean(); // Convert to plain JavaScript objects
+
+    res.status(200).json({
+      success: true,
+      count: shipments.length,
+      data: shipments
+    });
+  } catch (error) {
+    console.error('Error fetching shipments:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
