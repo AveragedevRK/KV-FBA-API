@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const Shipment = require('../models/Shipment');
+const ShipmentHistory = require('../models/ShipmentHistory');
+const logShipmentEvent = require('../utils/logShipmentEvent');
+
+
 
 // POST /api/shipments - Create a new shipment
 router.post('/', async (req, res) => {
@@ -96,6 +100,11 @@ router.post('/', async (req, res) => {
 
     // Save to database
     const savedShipment = await shipment.save();
+
+    // Log the creation event
+    await logShipmentEvent(savedShipment.shipmentId, 'Shipment Created', {
+      shipmentName: savedShipment.shipmentName
+    });
 
     // Return success response
     res.status(201).json({
@@ -214,6 +223,12 @@ router.patch('/:shipmentId/packing', async (req, res) => {
     // Save the updated shipment
     const updatedShipment = await shipment.save();
 
+    // Log the packing update event
+    await logShipmentEvent(updatedShipment.shipmentId, 'Packing Updated', {
+      status: updatedShipment.status,
+      packingLinesCount: updatedShipment.packingLines.length
+    });
+
     res.status(200).json({
       success: true,
       data: updatedShipment
@@ -233,6 +248,33 @@ router.patch('/:shipmentId/packing', async (req, res) => {
     }
 
     // Handle other errors
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// GET /api/shipments/:shipmentId/history - Get history for a shipment
+router.get('/:shipmentId/history', async (req, res) => {
+  try {
+    const { shipmentId } = req.params;
+
+    // Find all history entries for this shipment, newest first
+    const history = await ShipmentHistory.find({ shipmentId })
+      .sort({ createdAt: -1 }) // Newest first
+      .select('event meta createdAt -_id') // Only include necessary fields
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      count: history.length,
+      data: history
+    });
+
+  } catch (error) {
+    console.error('Error fetching shipment history:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',
