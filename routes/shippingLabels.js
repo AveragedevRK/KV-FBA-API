@@ -6,14 +6,12 @@ let uuidv4;
 import("uuid").then(mod => {
   uuidv4 = mod.v4;
 });
-const fs = require('fs');
+const fs = require('fs').promises;
 const Shipment = require('../models/Shipment');
 
 // Ensure uploads directory exists
-const uploadDir = 'public/uploads/labels';
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+const uploadDir = path.join(__dirname, '../public/uploads/labels');
+fs.mkdir(uploadDir, { recursive: true }).catch(console.error);
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -42,33 +40,58 @@ const upload = multer({
 router.post('/:shipmentId/labels', upload.single('file'), async (req, res) => {
   try {
     const { shipmentId } = req.params;
-    const { appliesTo = [] } = req.body;
 
+    // Validate file is provided
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: 'No file uploaded'
+        message: 'No file uploaded. Please provide a PDF file.'
       });
     }
 
+    // Validate appliesTo is provided and is a valid JSON array
+    if (!req.body.appliesTo) {
+      await fs.unlink(req.file.path).catch(console.error);
+      return res.status(400).json({
+        success: false,
+        message: 'appliesTo is required and must be a JSON array of packing line IDs'
+      });
+    }
+
+    let appliesTo;
+    try {
+      appliesTo = JSON.parse(req.body.appliesTo);
+      if (!Array.isArray(appliesTo) || appliesTo.length === 0) {
+        throw new Error('appliesTo must be a non-empty array');
+      }
+    } catch (error) {
+      await fs.unlink(req.file.path).catch(console.error);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid appliesTo format. Must be a JSON array of packing line IDs'
+      });
+    }
+
+    // Find the shipment
     const shipment = await Shipment.findOne({ shipmentId });
     if (!shipment) {
-      // Clean up the uploaded file if shipment not found
-      fs.unlinkSync(req.file.path);
+      await fs.unlink(req.file.path).catch(console.error);
       return res.status(404).json({
         success: false,
         message: 'Shipment not found'
       });
     }
 
+    // Create new label
     const newLabel = {
       id: uuidv4(),
       fileName: req.file.originalname,
       fileUrl: `/uploads/labels/${path.basename(req.file.path)}`,
-      appliesTo: Array.isArray(appliesTo) ? appliesTo : [appliesTo].filter(Boolean),
+      appliesTo,
       uploadedAt: new Date()
     };
 
+    // Add label to shipment and save
     shipment.shippingLabels.push(newLabel);
     await shipment.save();
 
@@ -80,9 +103,9 @@ router.post('/:shipmentId/labels', upload.single('file'), async (req, res) => {
   } catch (error) {
     console.error('Error uploading shipping label:', error);
 
-    // Clean up the uploaded file if there was an error
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
+    // Clean up uploaded file if there was an error
+    if (req.file) {
+      await fs.unlink(req.file.path).catch(console.error);
     }
 
     const statusCode = error instanceof multer.MulterError ? 400 : 500;
@@ -131,6 +154,7 @@ router.delete('/:shipmentId/labels/:labelId', async (req, res) => {
   try {
     const { shipmentId, labelId } = req.params;
 
+    // Find the shipment
     const shipment = await Shipment.findOne({ shipmentId });
     if (!shipment) {
       return res.status(404).json({
@@ -139,6 +163,7 @@ router.delete('/:shipmentId/labels/:labelId', async (req, res) => {
       });
     }
 
+    // Find the label index
     const labelIndex = shipment.shippingLabels.findIndex(
       label => label.id === labelId
     );
@@ -151,18 +176,14 @@ router.delete('/:shipmentId/labels/:labelId', async (req, res) => {
     }
 
     // Get the file path before removing the label
-    const filePath = path.join(__dirname, '..', 'public', shipment.shippingLabels[labelIndex].fileUrl);
+    const filePath = path.join(__dirname, '../public', shipment.shippingLabels[labelIndex].fileUrl);
 
     // Remove the label from the array
     shipment.shippingLabels.splice(labelIndex, 1);
     await shipment.save();
 
-    // Delete the file (optional)
-    if (fs.existsSync(filePath)) {
-      fs.unlink(filePath, (err) => {
-        if (err) console.error('Error deleting file:', err);
-      });
-    }
+    // Delete the file (async)
+    fs.unlink(filePath).catch(console.error);
 
     res.status(200).json({
       success: true,
