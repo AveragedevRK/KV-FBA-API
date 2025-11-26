@@ -29,6 +29,14 @@ const shippingLabelSchema = new mongoose.Schema({
 }, { _id: false });
 
 const shipmentSchema = new mongoose.Schema({
+  originalShipmentContents: {
+    type: Array,
+    default: []
+  },
+  originalPackingLines: {
+    type: Array,
+    default: []
+  },
   shipmentId: {
     type: String,
     required: [true, 'Shipment ID is required'],

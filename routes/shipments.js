@@ -101,6 +101,11 @@ router.post('/', async (req, res) => {
     // Save to database
     const savedShipment = await shipment.save();
 
+    // Save original contents and packing lines
+    savedShipment.originalShipmentContents = JSON.parse(JSON.stringify(savedShipment.shipmentContents));
+    savedShipment.originalPackingLines = [];
+    await savedShipment.save();
+
     // Log the creation event
     await logShipmentEvent(savedShipment.shipmentId, 'Shipment Created', {
       shipmentName: savedShipment.shipmentName
@@ -275,6 +280,131 @@ router.get('/:shipmentId/history', async (req, res) => {
 
   } catch (error) {
     console.error('Error fetching shipment history:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// PATCH /api/shipments/:shipmentId/contents - Update shipment contents
+router.patch('/:shipmentId/contents', async (req, res) => {
+  try {
+    const { shipmentId } = req.params;
+    const { updates = [], additions = [] } = req.body;
+
+    // Find the shipment
+    const shipment = await Shipment.findOne({ shipmentId });
+    if (!shipment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Shipment not found'
+      });
+    }
+
+    // Process updates
+    for (const { sku, newQuantity } of updates) {
+      const item = shipment.shipmentContents.find(item => item.sku === sku);
+      if (!item) {
+        return res.status(404).json({
+          success: false,
+          message: `Product with SKU ${sku} not found in shipment`
+        });
+      }
+
+      // Check if reducing quantity below packed units
+      if (newQuantity < item.quantity) {
+        const packedQty = shipment.packingLines.reduce((total, line) => {
+          const lineItem = line.unitsPerBox.find(u => u.sku === sku);
+          return total + (lineItem ? lineItem.quantity : 0);
+        }, 0);
+
+        if (newQuantity < packedQty) {
+          return res.status(400).json({
+            success: false,
+            message: `Cannot reduce quantity of ${sku} below ${packedQty} packed units`
+          });
+        }
+      }
+
+      // Log quantity change
+      if (newQuantity !== item.quantity) {
+        await logShipmentEvent(shipmentId, 'Product quantity updated', {
+          sku,
+          oldQuantity: item.quantity,
+          newQuantity
+        });
+        item.quantity = newQuantity;
+      }
+    }
+
+    // Process additions
+    for (const { sku, asin, quantity } of additions) {
+      if (shipment.shipmentContents.some(item => item.sku === sku)) {
+        return res.status(400).json({
+          success: false,
+          message: `Product with SKU ${sku} already exists in shipment`
+        });
+      }
+
+      shipment.shipmentContents.push({ sku, asin, quantity });
+
+      await logShipmentEvent(shipmentId, 'Product added to shipment', {
+        sku,
+        asin,
+        quantity
+      });
+    }
+
+    const updatedShipment = await shipment.save();
+
+    res.status(200).json({
+      success: true,
+      data: updatedShipment
+    });
+
+  } catch (error) {
+    console.error('Error updating shipment contents:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// POST /api/shipments/:shipmentId/reset - Reset shipment to original state
+router.post('/:shipmentId/reset', async (req, res) => {
+  try {
+    const { shipmentId } = req.params;
+
+    // Find the shipment
+    const shipment = await Shipment.findOne({ shipmentId });
+    if (!shipment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Shipment not found'
+      });
+    }
+
+    // Reset to original state
+    shipment.shipmentContents = JSON.parse(JSON.stringify(shipment.originalShipmentContents));
+    shipment.packingLines = [];
+    shipment.status = 'Unpacked';
+
+    const resetShipment = await shipment.save();
+
+    // Log the reset event
+    await logShipmentEvent(shipmentId, 'Shipment reset to original setup');
+
+    res.status(200).json({
+      success: true,
+      data: resetShipment
+    });
+
+  } catch (error) {
+    console.error('Error resetting shipment:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',
