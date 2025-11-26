@@ -5,7 +5,7 @@
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
-    "save-timestamp": "node savecurrenttimestamp.js",
+    "save-timestamp": "echo \"$(date)\" > stamp.txt",
     "deploy": "git add . && git commit -m 'deploy' && git push origin master && curl https://api.render.com/deploy/srv-d4il71gdl3ps73da7vfg?key=N3cBIIlnY-0",
     "start": "node server.js",
     "dev": "nodemon server.js",
