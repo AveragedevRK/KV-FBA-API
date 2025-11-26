@@ -1,4 +1,29 @@
 const mongoose = require('mongoose');
+const { v4: uuidv4 } = require('uuid');
+
+const shippingLabelSchema = new mongoose.Schema({
+  id: {
+    type: String,
+    required: true,
+    default: () => uuidv4()
+  },
+  fileName: {
+    type: String,
+    required: true
+  },
+  fileUrl: {
+    type: String,
+    required: true
+  },
+  appliesTo: {
+    type: [String],
+    default: []
+  },
+  uploadedAt: {
+    type: Date,
+    default: Date.now
+  }
+}, { _id: false });
 
 const shipmentSchema = new mongoose.Schema({
   shipmentId: {
@@ -88,7 +113,8 @@ const shipmentSchema = new mongoose.Schema({
   priorityIndex: {
     type: Number,
     required: false
-  }
+  },
+  shippingLabels: [shippingLabelSchema]
 }, {
   timestamps: true // This adds createdAt and updatedAt fields automatically
 });

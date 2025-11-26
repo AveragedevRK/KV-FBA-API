@@ -18,6 +18,7 @@ app.use(express.static('public'));
 app.use('/api/health', require('./routes/health'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/shipments', require('./routes/shipments'));
+app.use('/api/shipments', require('./routes/shippingLabels'));
 
 // Connect to MongoDB
 connectDB()
