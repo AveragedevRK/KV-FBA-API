@@ -2,7 +2,10 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const { v4: uuidv4 } = require('uuid');
+let uuidv4;
+import("uuid").then(mod => {
+  uuidv4 = mod.v4;
+});
 const fs = require('fs');
 const Shipment = require('../models/Shipment');
 
