@@ -413,4 +413,68 @@ router.post('/:shipmentId/reset', async (req, res) => {
   }
 });
 
+// PATCH /api/shipments/:shipmentId/instructions - Update packing instructions
+router.patch('/:shipmentId/instructions', async (req, res) => {
+  try {
+    const { shipmentId } = req.params;
+    const { packingInstructions } = req.body;
+
+    // Validate input
+    if (typeof packingInstructions !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'packingInstructions must be a string'
+      });
+    }
+
+    // Find and update the shipment
+    const shipment = await Shipment.findOneAndUpdate(
+      { shipmentId },
+      {
+        $set: {
+          packingInstructions: packingInstructions.trim()
+        }
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!shipment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Shipment not found'
+      });
+    }
+
+    // Log the update event
+    await logShipmentEvent(shipmentId, 'Packing instructions updated', {
+      instructions: packingInstructions.trim()
+    });
+
+    res.status(200).json({
+      success: true,
+      data: shipment
+    });
+
+  } catch (error) {
+    console.error('Error updating packing instructions:', error);
+
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(val => val.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: messages
+      });
+    }
+
+    // Handle other errors
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 module.exports = router;

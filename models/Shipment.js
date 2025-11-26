@@ -125,7 +125,12 @@ const shipmentSchema = new mongoose.Schema({
     type: Number,
     required: false
   },
-  shippingLabels: [shippingLabelSchema]
+  shippingLabels: [shippingLabelSchema],
+  packingInstructions: {
+    type: String,
+    default: "",
+    trim: true
+  }
 }, {
   timestamps: true // This adds createdAt and updatedAt fields automatically
 });
